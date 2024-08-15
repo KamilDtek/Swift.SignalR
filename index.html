@@ -174,7 +174,6 @@
         var deviceId = null;
         var connectionUrl = "";
         var endpoint = "";
-        var token = "";
         var username = "";
         var password = "";
         
@@ -199,9 +198,9 @@
                 .then(response => response.json())
                 .then(data => {
                     if (data.access_token) {
-                        token = data.access_token;
+                        
                         // Proceed with the rest of the setup
-                        setupConnection();
+                        setupConnection(data.access_token);
                     } else {
                         alert('Authentication failed');
                     }
@@ -227,7 +226,7 @@
                 }
             }
 
-            function setupConnection() {
+            function setupConnection(token) {
 
                 if (connectionType == 1) {
                     connectionUrl = endpoint + "chathub";
