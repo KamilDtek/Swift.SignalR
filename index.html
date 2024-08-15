@@ -178,6 +178,7 @@
         var username = "";
         var password = "";
         var connection = null;
+        var token = null;
 
         $(document).ready(async function () {
             var selectedProducts = []; // Array to store selected products
@@ -185,7 +186,7 @@
             setupEndpoint();
 
             try {
-                const token = await getToken();
+                token = await getToken();
                 if (token) {
                     setupConnection(token);
                 } else {
@@ -618,7 +619,8 @@
                         toastr.error("Error during checkout abandonment: " + err.toString());
                     });
             });
-            $("#scanProduct").on("click", function () {
+            
+            $("#scanProduct").on("click", function (token) {
                 const barcode = $("#barcode").val();
                 var url = connectionUrl.replace("chathub", "api/app/products/scan-product?sku=" + barcode);
                 const myHeaders = new Headers();
