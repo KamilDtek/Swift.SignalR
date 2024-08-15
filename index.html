@@ -173,6 +173,7 @@
     <script>
         var deviceId = null;
         var connectionUrl = "";
+        var endpoint = "";
         var token = "";
         $(document).ready(function () {
             var selectedProducts = []; // Array to store selected products
@@ -181,13 +182,13 @@
             var username = prompt("Enter username");
             var password = prompt("Enter password");
 
-            fetch('https://localhost:5000/connect/token', {
+            fetch(endpoint+'connect/token', {
                 method: 'POST',
                 headers: {
                     'User-Agent': 'PostmanRuntime/7.41.1',
                     'Accept': '*/*',
                     'Cache-Control': 'no-cache',
-                    'Host': 'https://swift-signal-r.vercel.app',
+                    'Host': 'https://swift-signal-r.vercel.app/',
                     'Accept-Encoding': 'gzip, deflate, br',
                     'Connection': 'keep-alive',
                     'Content-Type': 'application/x-www-form-urlencoded',
@@ -195,8 +196,8 @@
                 },
                 body: new URLSearchParams({
                     'grant_type': 'password',
-                    'username': 'ls1607',
-                    'password': 'exsf4164',
+                    'username': username,
+                    'password': password,
                     'client_id': 'Dtek_Swift_Mobile'
                 })
             })
@@ -215,15 +216,29 @@
                     alert('An error occurred');
                 });
 
+                function setupEndpoint() {
+                var connectionType = prompt("Enter 0 for PROD, 1 for Local, 2 for DEV, 3 for Custom");
+
+                if (connectionType == 1) {
+                    endpoint = "https://localhost:5000/";
+                } else if (connectionType == 2) {
+                    endpoint = "https://swift-api-dev.dtek.ai/";
+                } else if (connectionType == 0) {
+                    endpoint = "https://swift-api.dtek.ai/";
+                } else if (connectionType == 3) {
+                    endpoint = prompt("Enter url");
+                }
+            }
+
             function setupConnection() {
                 var connectionType = prompt("Enter 0 for prod, 1 for local 2 for dev, 3 for custom");
 
                 if (connectionType == 1) {
-                    connectionUrl = "https://localhost:5000/chathub";
+                    connectionUrl = endpoint+"chathub";
                 } else if (connectionType == 2) {
-                    connectionUrl = "https://swift-api-dev.dukkantek.com/chathub";
+                    connectionUrl = endpoint+"chathub";
                 } else if (connectionType == 0) {
-                    connectionUrl = "https://swift-api.dukkantek.com/chathub";
+                    connectionUrl = endpoint+"chathub";
                 } else if (connectionType == 3) {
                     connectionUrl = prompt("Enter url");
                 }
