@@ -178,13 +178,13 @@
         var password = "";
         var connection = null;
 
-        $(document).ready(function () {
+        $(document).ready(async function () {
             var selectedProducts = []; // Array to store selected products
             // var connectionType = prompt("Enter 0 for prod, 1 for local, 2 for dev, 3 for custom");
 
             setupEndpoint();
 
-            fetch(endpoint + 'connect/token', {
+            await fetch(endpoint + 'connect/token', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded'
@@ -439,6 +439,99 @@
                     }
                     toastr.success("User Credential has Changed!");
                 });
+
+                connection.on("ReceiveCheckoutInvoiceSummary", function (message) {
+                    log('ReceiveCheckoutInvoiceSummary received');
+                    toastr.success("ReceiveCheckoutInvoiceSummary");
+                    const invoice = JSON.parse(message);
+                    if (invoice.status != '200') {
+                        toastr.error(invoice.error);
+                        return;
+                    }
+                    // Update the invoice details
+                    $("#paymentDate").text(invoice.data.paymentDate);
+                    $("#paymentTypeText").text(invoice.data.paymentTypeName);
+                    $("#invoiceTotal").text(invoice.data.subTotal);
+                    $("#invoiceVat").text(invoice.data.vat);
+                    $("#grandTotal").text(invoice.data.total);
+                    $("#invoiceNumber").text(invoice.data.invoiceNumber);
+
+                    const invoiceItems = $("#invoiceItems");
+                    invoiceItems.empty();
+
+                    invoice.data.items.forEach((item) => {
+                        const row = $("<tr>");
+                        $("<td>").text(item.name).appendTo(row);
+                        $("<td>").text(item.quantity).appendTo(row);
+                        $("<td>").text(item.unitPrice).appendTo(row);
+                        $("<td>").text(item.vat).appendTo(row);
+                        $("<td>").text(item.total).appendTo(row);
+                        $("<td>").text(item.isScanned).appendTo(row);
+                        invoiceItems.append(row);
+                    });
+
+                    // Show the invoice box
+                    $("#invoiceBox").show();
+                });
+
+                connection.on("ReceiveInvoice", function (message) {
+                    log('ReceiveInvoice received');
+                    log(message);
+                    const invoice = JSON.parse(message);
+                    if (invoice.status != '200') {
+                        toastr.error(invoice.error);
+                        return;
+                    }
+                    toastr.success("ReceiveInvoice");
+                    // Update the invoice details
+                    $("#paymentDate").text(invoice.data.paymentDate);
+                    $("#paymentTypeText").text(invoice.data.paymentTypeName);
+                    $("#invoiceVat").text(invoice.data.vat);
+                    $("#invoiceTotal").text(invoice.data.subTotal);
+                    $("#grandTotal").text(invoice.data.total);
+                    $("#invoiceNumber").text(invoice.data.invoiceNumber);
+
+                    const invoiceItems = $("#invoiceItems");
+                    invoiceItems.empty();
+
+                    invoice.data.items.forEach((item) => {
+                        const row = $("<tr>");
+                        if (!item.unit) {
+                            item.unit = "PCS"
+                        }
+                        $("<td>").text(item.name).appendTo(row);
+                        $("<td>").text(item.quantity + ' ' + item.unit).appendTo(row);
+                        $("<td>").text(item.unitPrice).appendTo(row);
+                        $("<td>").text(item.vat).appendTo(row);
+                        $("<td>").text(item.total).appendTo(row);
+                        $("<td>").text(item.isScanned).appendTo(row);
+                        invoiceItems.append(row);
+                    });
+
+                    // Show the invoice box
+                    $("#invoiceBox").show();
+                    connection.invoke("getSpinnerParams")
+                        .then(function () {
+                            log("getSpinnerParams request sent.");
+                        })
+                        .catch(function (err) {
+                            toastr.error("Error sending getSpinnerParams: " + err.toString());
+                        });
+
+                    //var prize = prompt("Enter prize amount");
+                    var prize = 1;
+                    const createSpinnerPrizeInput = {
+                        invoiceId: invoice.data.invoiceId,
+                        prize: parseFloat(prize)
+                    };
+                    connection.invoke("createSpinnerPrize", createSpinnerPrizeInput)
+                        .then(function () {
+                            log("createSpinnerPrize request sent.");
+                        })
+                        .catch(function (err) {
+                            toastr.error("Error sending createSpinnerPrize: " + err.toString());
+                        });
+                });
             }
 
             // Checkout button click event
@@ -491,6 +584,7 @@
                 const productTable = $("#productTable");
                 productTable.empty();
             });
+
             function emptyInvoice() {
                 $("#paymentDate").text("");
                 $("#paymentTypeText").text("");
@@ -654,97 +748,6 @@
                 $("<td>").text(dformat).appendTo(row);
                 logs.prepend(row);  // Prepend the new log row
             }
-            connection.on("ReceiveCheckoutInvoiceSummary", function (message) {
-                log('ReceiveCheckoutInvoiceSummary received');
-                toastr.success("ReceiveCheckoutInvoiceSummary");
-                const invoice = JSON.parse(message);
-                if (invoice.status != '200') {
-                    toastr.error(invoice.error);
-                    return;
-                }
-                // Update the invoice details
-                $("#paymentDate").text(invoice.data.paymentDate);
-                $("#paymentTypeText").text(invoice.data.paymentTypeName);
-                $("#invoiceTotal").text(invoice.data.subTotal);
-                $("#invoiceVat").text(invoice.data.vat);
-                $("#grandTotal").text(invoice.data.total);
-                $("#invoiceNumber").text(invoice.data.invoiceNumber);
-
-                const invoiceItems = $("#invoiceItems");
-                invoiceItems.empty();
-
-                invoice.data.items.forEach((item) => {
-                    const row = $("<tr>");
-                    $("<td>").text(item.name).appendTo(row);
-                    $("<td>").text(item.quantity).appendTo(row);
-                    $("<td>").text(item.unitPrice).appendTo(row);
-                    $("<td>").text(item.vat).appendTo(row);
-                    $("<td>").text(item.total).appendTo(row);
-                    $("<td>").text(item.isScanned).appendTo(row);
-                    invoiceItems.append(row);
-                });
-
-                // Show the invoice box
-                $("#invoiceBox").show();
-            });
-            connection.on("ReceiveInvoice", function (message) {
-                log('ReceiveInvoice received');
-                log(message);
-                const invoice = JSON.parse(message);
-                if (invoice.status != '200') {
-                    toastr.error(invoice.error);
-                    return;
-                }
-                toastr.success("ReceiveInvoice");
-                // Update the invoice details
-                $("#paymentDate").text(invoice.data.paymentDate);
-                $("#paymentTypeText").text(invoice.data.paymentTypeName);
-                $("#invoiceVat").text(invoice.data.vat);
-                $("#invoiceTotal").text(invoice.data.subTotal);
-                $("#grandTotal").text(invoice.data.total);
-                $("#invoiceNumber").text(invoice.data.invoiceNumber);
-
-                const invoiceItems = $("#invoiceItems");
-                invoiceItems.empty();
-
-                invoice.data.items.forEach((item) => {
-                    const row = $("<tr>");
-                    if (!item.unit) {
-                        item.unit = "PCS"
-                    }
-                    $("<td>").text(item.name).appendTo(row);
-                    $("<td>").text(item.quantity + ' ' + item.unit).appendTo(row);
-                    $("<td>").text(item.unitPrice).appendTo(row);
-                    $("<td>").text(item.vat).appendTo(row);
-                    $("<td>").text(item.total).appendTo(row);
-                    $("<td>").text(item.isScanned).appendTo(row);
-                    invoiceItems.append(row);
-                });
-
-                // Show the invoice box
-                $("#invoiceBox").show();
-                connection.invoke("getSpinnerParams")
-                    .then(function () {
-                        log("getSpinnerParams request sent.");
-                    })
-                    .catch(function (err) {
-                        toastr.error("Error sending getSpinnerParams: " + err.toString());
-                    });
-
-                //var prize = prompt("Enter prize amount");
-                var prize = 1;
-                const createSpinnerPrizeInput = {
-                    invoiceId: invoice.data.invoiceId,
-                    prize: parseFloat(prize)
-                };
-                connection.invoke("createSpinnerPrize", createSpinnerPrizeInput)
-                    .then(function () {
-                        log("createSpinnerPrize request sent.");
-                    })
-                    .catch(function (err) {
-                        toastr.error("Error sending createSpinnerPrize: " + err.toString());
-                    });
-            });
         });
     </script>
 </body>
