@@ -175,24 +175,19 @@
         var connectionUrl = "";
         var endpoint = "";
         var token = "";
+        var username = "";
+        var password = "";
+        
         $(document).ready(function () {
             var selectedProducts = []; // Array to store selected products
-            var connectionType = prompt("Enter 0 for prod, 1 for local, 2 for dev, 3 for custom");
+            // var connectionType = prompt("Enter 0 for prod, 1 for local, 2 for dev, 3 for custom");
 
-            var username = prompt("Enter username");
-            var password = prompt("Enter password");
+            setupEndpoint();
 
-            fetch(endpoint+'connect/token', {
+            fetch(endpoint + 'connect/token', {
                 method: 'POST',
                 headers: {
-                    'User-Agent': 'PostmanRuntime/7.41.1',
-                    'Accept': '*/*',
-                    'Cache-Control': 'no-cache',
-                    'Host': 'https://swift-signal-r.vercel.app/',
-                    'Accept-Encoding': 'gzip, deflate, br',
-                    'Connection': 'keep-alive',
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                    'Content-Length': '81'
+                    'Content-Type': 'application/x-www-form-urlencoded'
                 },
                 body: new URLSearchParams({
                     'grant_type': 'password',
@@ -216,8 +211,10 @@
                     alert('An error occurred');
                 });
 
-                function setupEndpoint() {
+            function setupEndpoint() {
                 var connectionType = prompt("Enter 0 for PROD, 1 for Local, 2 for DEV, 3 for Custom");
+                username = prompt("Enter username");
+                password = prompt("Enter password");
 
                 if (connectionType == 1) {
                     endpoint = "https://localhost:5000/";
@@ -231,14 +228,13 @@
             }
 
             function setupConnection() {
-                var connectionType = prompt("Enter 0 for prod, 1 for local 2 for dev, 3 for custom");
 
                 if (connectionType == 1) {
-                    connectionUrl = endpoint+"chathub";
+                    connectionUrl = endpoint + "chathub";
                 } else if (connectionType == 2) {
-                    connectionUrl = endpoint+"chathub";
+                    connectionUrl = endpoint + "chathub";
                 } else if (connectionType == 0) {
-                    connectionUrl = endpoint+"chathub";
+                    connectionUrl = endpoint + "chathub";
                 } else if (connectionType == 3) {
                     connectionUrl = prompt("Enter url");
                 }
