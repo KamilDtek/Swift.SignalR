@@ -245,11 +245,11 @@
                     .build();
 
                 connection.start()
-                    .then(registerBox)
+                    .then(e=>registerBox(token))
                     .catch(console.error);
             }
 
-            function registerBox() {
+            function registerBox(token) {
                 kioskSn = prompt("Enter your kiosk sn:");
                 $("#deviceId").text("Device Id: " + kioskSn);
                 const apiUrl = connectionUrl.replace("chathub", '') + 'api/app/users/login';
