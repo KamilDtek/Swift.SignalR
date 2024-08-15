@@ -171,6 +171,7 @@
     </div>
 
     <script>
+
         var deviceId = null;
         var connectionUrl = "";
         var endpoint = "";
@@ -180,64 +181,65 @@
 
         $(document).ready(async function () {
             var selectedProducts = []; // Array to store selected products
-            // var connectionType = prompt("Enter 0 for prod, 1 for local, 2 for dev, 3 for custom");
 
             setupEndpoint();
 
-            await fetch(endpoint + 'connect/token', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded'
-                },
-                body: new URLSearchParams({
-                    'grant_type': 'password',
-                    'username': username,
-                    'password': password,
-                    'client_id': 'Dtek_Swift_Mobile'
-                })
-            })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.access_token) {
-
-                        // Proceed with the rest of the setup
-                        setupConnection(data.access_token);
-                    } else {
-                        alert('Authentication failed');
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    alert('An error occurred');
-                });
+            try {
+                const token = await getToken();
+                if (token) {
+                    setupConnection(token);
+                } else {
+                    alert('Authentication failed');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('An error occurred');
+            }
 
             function setupEndpoint() {
                 var connectionType = prompt("Enter 0 for PROD, 1 for Local, 2 for DEV, 3 for Custom");
                 username = prompt("Enter username");
                 password = prompt("Enter password");
 
-                if (connectionType == 1) {
-                    endpoint = "https://localhost:5000/";
-                } else if (connectionType == 2) {
-                    endpoint = "https://swift-api-dev.dtek.ai/";
-                } else if (connectionType == 0) {
-                    endpoint = "https://swift-api.dtek.ai/";
-                } else if (connectionType == 3) {
-                    endpoint = prompt("Enter url");
+                switch (connectionType) {
+                    case '1':
+                        endpoint = "https://localhost:5000/";
+                        break;
+                    case '2':
+                        endpoint = "https://swift-api-dev.dtek.ai/";
+                        break;
+                    case '0':
+                        endpoint = "https://swift-api.dtek.ai/";
+                        break;
+                    case '3':
+                        endpoint = prompt("Enter url");
+                        break;
+                    default:
+                        alert("Invalid connection type");
+                        return;
                 }
             }
 
-            function setupConnection(token) {
+            async function getToken() {
+                const response = await fetch(endpoint + 'connect/token', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+                    body: new URLSearchParams({
+                        'grant_type': 'password',
+                        'username': username,
+                        'password': password,
+                        'client_id': 'Dtek_Swift_Mobile'
+                    })
+                });
 
-                if (connectionType == 1) {
-                    connectionUrl = endpoint + "chathub";
-                } else if (connectionType == 2) {
-                    connectionUrl = endpoint + "chathub";
-                } else if (connectionType == 0) {
-                    connectionUrl = endpoint + "chathub";
-                } else if (connectionType == 3) {
-                    connectionUrl = prompt("Enter url");
-                }
+                const data = await response.json();
+                return data.access_token;
+            }
+
+            function setupConnection(token) {
+                connectionUrl = endpoint + "chathub";
 
                 connection = new signalR.HubConnectionBuilder()
                     .withUrl(connectionUrl, {
@@ -246,50 +248,46 @@
                     .build();
 
                 connection.start()
-                    .then(e => registerBox(token))
+                    .then(() => registerBox(token))
                     .catch(console.error);
 
-                subscribe(connection)
+                subscribe(connection);
             }
 
             function registerBox(token) {
-                kioskSn = prompt("Enter your kiosk sn:");
+                const kioskSn = prompt("Enter your kiosk SN:");
                 $("#deviceId").text("Device Id: " + kioskSn);
+
                 const apiUrl = connectionUrl.replace("chathub", '') + 'api/app/users/login';
                 const data = {
                     KioskSerialNumber: kioskSn
                 };
-                const requestOptions = {
+
+                fetch(apiUrl, {
                     method: 'POST',
                     headers: {
                         'Authorization': 'Bearer ' + token,
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify(data),
-                };
-                fetch(apiUrl, requestOptions)
+                })
                     .then(response => {
                         if (!response.ok) {
-                            toastr.error("Network response was not ok");
+                            throw new Error("Network response was not ok");
                         }
-                        response
                         return response.json();
                     })
                     .then(data => {
-                        var boxCode = prompt("Enter your box Code:");
+                        const boxCode = prompt("Enter your box code:");
                         $("#boxCode").text("Box Code: " + boxCode);
-                        connection.invoke("registerBox", kioskSn, boxCode)
-                            .then(function () {
-                                log("registerBox request sent.");
-                                log(data);
-                            })
-                            .catch(function (err) {
-                                toastr.error("Error sending Login: " + err.toString());
-                            });
+                        return connection.invoke("registerBox", kioskSn, boxCode);
+                    })
+                    .then(() => {
+                        console.log("registerBox request sent.");
                     })
                     .catch(error => {
-                        console.error
-                            ('Error:', error);
+                        console.error("Error:", error);
+                        alert("An error occurred during registration.");
                     });
             }
 
