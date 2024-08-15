@@ -1,0 +1,14 @@
+.total-section {
+    text-align: center;
+    font-weight: bold;
+    border-top: 1px solid #000;
+    padding-top: 10px;
+    margin-top: 10px;
+}
+
+#invoiceBox {
+    display: none;
+    margin-top: 20px;
+    padding: 10px;
+    border: 1px solid #000;
+}

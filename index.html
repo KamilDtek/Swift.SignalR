@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>SignalR Client</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.1.3/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/5.0.12/signalr.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js"></script>
+    <script src="https://pgrabovets.github.io/json-view/jsonview.js"></script>
+    <style>
+        .imageContainer {
+            width: 100px;
+            /* Fixed width */
+            height: 100px;
+            /* Fixed height */
+            border: 1px solid #ccc;
+            overflow: hidden;
+            /* Hide overflow if image is larger than container */
+            float: left;
+            /* Align images horizontally */
+            margin: 10px;
+            /* Add some margin between images */
+        }
+
+        .imageContainer img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            /* Scale image while preserving aspect ratio */
+        }
+
+        .total-section {
+            text-align: center;
+            font-weight: bold;
+            border-top: 1px solid #000;
+            padding-top: 10px;
+            margin-top: 10px;
+        }
+
+        #invoiceBox {
+            display: none;
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #000;
+        }
+
+        #logs tr:nth-child(odd) {
+            background-color: #f2f2f2;
+            /* Light gray background for odd rows */
+        }
+
+        #logs tr:nth-child(even) {
+            background-color: #ffffff;
+            /* White background for even rows */
+        }
+
+        .jsonview {
+            font-family: 'Open Sans', sans-serif;
+            margin: 0;
+            padding: 0;
+            list-style: none;
+        }
+
+        .jsonview ul {
+            padding-left: 20px;
+        }
+
+        .jsonview .collapsed>ul {
+            display: none;
+        }
+
+        .jsonview .toggle {
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="row">
+            <span id="deviceId">Device Id: N/A</span>
+            <br>
+            <span id="boxCode">Box Code: N/A</span>
+            <br>
+            <img id="shopLogo" style="width:200px;height:200px;display:none" src="" />
+        </div>
+        <h2 class="text-center" id="unidentified" style="display:none">Unidentified Items</h2>
+        <div class="row" id="images"></div>
+        <br><br>
+        <h2 class="text-center">Product List</h2>
+        <button id="emptyProduct" class="btn btn-success">Empty Product List</button>
+        <br><br>
+        <table class="table">
+            <thead>
+                <tr>
+                    <th></th>
+                    <th>ID</th>
+                    <th>Barcode</th>
+                    <th>Name</th>
+                    <th>IsScanned</th>
+                    <th>Image</th>
+                    <th>Unit Sale</th>
+                    <th>Quantity</th>
+                    <th>Sub total</th>
+                    <th>Total</th>
+                    <th>VAT</th>
+                </tr>
+            </thead>
+            <tbody id="productTable"></tbody>
+        </table>
+        <div id="totalSection" class="total-section">
+            <span id="subTotal"></span>
+            <br>
+            <span id="vat"></span>
+            <br>
+            <span id="total"></span>
+        </div>
+        <div>
+            <label for="paymentType">Payment Type:</label>
+            <select id="paymentType">
+                <option value="1">Cash</option>
+                <option value="2">Credit Card</option>
+            </select>
+            <button id="preCheckoutButton" class="btn btn-primary">Pre Checkout</button>
+            <button id="checkoutButton" class="btn btn-primary">Checkout</button>
+            <button id="checkoutCancel" class="btn btn-danger">Cancel Transaction</button>
+            <br><br>
+            <label for="barcode">Barcode:</label>
+            <input type="text" id="barcode" name="barcode">
+            <button id="scanProduct" class="btn btn-success">Scan Product</button>
+            <br><br>
+        </div>
+        <div id="invoiceBox">
+            <h2>Invoice</h2>
+            <p>Invoice Number: <b><span id="invoiceNumber"></span></b></p>
+            <p>Payment Date: <b><span id="paymentDate"></span></b></p>
+            <p>Payment Type: <b><span id="paymentTypeText"></span></b></p>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Quantity</th>
+                        <th>Price</th>
+                        <th>Vat</th>
+                        <th>Total Incl</th>
+                        <th>Scanned</th>
+                    </tr>
+                </thead>
+                <tbody id="invoiceItems"></tbody>
+            </table>
+            <p>Sub Total: <b><span id="invoiceTotal"></span></b></p>
+            <p>Sub Vat: <b><span id="invoiceVat"></span></b></p>
+            <p>Grand Total: <b><span id="grandTotal"></span></b></p>
+        </div>
+        <div>
+            <hr>
+            <strong>Logs</strong>
+            <button id="clearLogs" class="btn btn-warning">Clear logs</button>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Content</th>
+                        <th>Time</th>
+                    </tr>
+                </thead>
+                <tbody id="logs"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        var deviceId = null;
+        var connectionUrl = "";
+        var token = "";
+        $(document).ready(function () {
+            var selectedProducts = []; // Array to store selected products
+            var connectionType = prompt("Enter 0 for prod, 1 for local 2 for dev, 3 for custom");
+            token = prompt("Enter token");
+            if (connectionType == 1) {
+                connectionUrl = "https://localhost:5000/chathub";
+            } else if (connectionType == 2) {
+                connectionUrl = "https://swift-api-dev.dukkantek.com/chathub";
+            } else if (connectionType == 0) {
+                connectionUrl = "https://swift-api.dukkantek.com/chathub";
+            }
+            else if (connectionType == 3) {
+                connectionUrl = prompt("Enter url");
+            }
+            var connection = new signalR.HubConnectionBuilder()
+                .withUrl(connectionUrl, {
+                    accessTokenFactory: () => token
+                })
+                .build();
+            connection.start()
+                .then(registerBox)
+                .catch(console.error);
+
+            function registerBox() {
+                kioskSn = prompt("Enter your kiosk sn:");
+                $("#deviceId").text("Device Id: " + kioskSn);
+                const apiUrl = connectionUrl.replace("chathub", '') + 'api/app/users/login';
+                const data = {
+                    KioskSerialNumber: kioskSn
+                };
+                const requestOptions = {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': 'Bearer ' + token,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data),
+                };
+                fetch(apiUrl, requestOptions)
+                    .then(response => {
+                        if (!response.ok) {
+                            toastr.error("Network response was not ok");
+                        }
+                        response
+                        return response.json();
+                    })
+                    .then(data => {
+                        var boxCode = prompt("Enter your box Code:");
+                        $("#boxCode").text("Box Code: " + boxCode);
+                        connection.invoke("registerBox", kioskSn, boxCode)
+                            .then(function () {
+                                log("registerBox request sent.");
+                                log(data);
+                            })
+                            .catch(function (err) {
+                                toastr.error("Error sending Login: " + err.toString());
+                            });
+                    })
+                    .catch(error => {
+                        console.error
+                            ('Error:', error);
+                    });
+            }
+            connection.on("ReceiveKioskDisconnected", function (message) {
+                log("ReceiveKioskDisconnected");
+                toastr.warning("ReceiveKioskDisconnected");
+                log(message);
+            });
+            connection.on("ReceiveTerminalConnected", function (message) {
+                log("ReceiveTerminalConnected");
+                toastr.success(ReceiveTerminalConnected);
+                log(message);
+            });
+            connection.on("ReceiveTerminalDisconnected", function (message) {
+                log("ReceiveTerminalDisconnected");
+                toastr.warning("ReceiveTerminalDisconnected");
+                log(message);
+            });
+            connection.on("ReceiveKioskSettingChanged", function (message) {
+                log("ReceiveKioskSettingChanged");
+                toastr.success("ReceiveKioskSettingChanged");
+                log(message);
+                $("#shopLogo").show();
+                $("#shopLogo").attr("src", JSON.parse(message).data.shopSetting.logoUrl);
+            });
+            connection.on("ReceiveSpinnerParams", function (message) {
+                log('ReceiveSpinnerParams received');
+                const res = JSON.parse(message);
+                if (res.status != '200') {
+                    toastr.error(res.error);
+                    return;
+                }
+                toastr.success("Received remaining budget: " + res.data.remainingBudget);
+                toastr.success("Received total budget: " + res.data.totalBudget);
+            });
+            connection.on("ReceivePrizeCreated", function (message) {
+                log('ReceivePrizeCreated received');
+                toastr.success("ReceivePrizeCreated");
+                const res = JSON.parse(message);
+                if (res.status != '200') {
+                    toastr.error(res.error);
+                    return;
+                }
+            });
+            connection.on("ReceiveRegister", function (message) {
+                log('ReceiveRegister received');
+                toastr.success("ReceiveRegister");
+                const res = JSON.parse(message);
+                if (res.status != '200') {
+                    toastr.error(res.error);
+                    return;
+                }
+                if (res.data == false) {
+                    toastr.error("Error registering box: " + err.toString());
+                } else {
+                    log("Box registration successful");
+                }
+            });
+            connection.on("ReceiveProducts", function (message) {
+                log('ReceiveProducts received');
+                toastr.success("ReceiveProducts");
+                selectedProducts = [];
+                const productTable = $("#productTable");
+                productTable.empty();
+                $("#subTotal").text("Sub Total: 0");
+                $("#vat").text("VAT: 0");
+                $("#total").text("Total: 0");
+                log(message);
+                const res = JSON.parse(message);
+                if (res.status != '200') {
+                    toastr.error(res.error);
+                    return;
+                }
+                $('#images').empty();
+                const unidentifiedProducts = res.data.unidentifiedItems;
+                if (unidentifiedProducts && unidentifiedProducts.length > 0) {
+                    $('#unidentified').show();
+                }
+                else {
+                    $('#unidentified').hide();
+                }
+                unidentifiedProducts.forEach((base64Image) => {
+                    base64Image = "data:image/png;base64," + base64Image;
+                    var img = $('<img>');
+                    img.attr('src', base64Image);
+                    var container = $('<div class="imageContainer"></div>');
+                    container.append(img);
+                    $('#images').append(container);
+                });
+                const products = res.data.items;
+                products.forEach((product) => {
+                    const row = $("<tr>");
+
+                    // Add checkbox column
+                    const checkboxCell = $("<td>");
+                    const checkbox = $("<input>")
+                        .attr("type", "checkbox")
+                        .attr("data-product-barcode", product.barcode)
+                        .attr("data-product-productId", product.id)
+                        .attr("data-product-isScanned", false)
+                        .on("change", function () {
+                            const barcode = $(this).data("product-barcode");
+                            if (this.checked) {
+                                selectedProducts.push({ productId: product.id, barcode: product.barcode, quantity: product.quantity, isScanned: false });
+                            } else {
+                                const index = selectedProducts.findIndex((product) => product.barcode === barcode);
+                                if (index !== -1) {
+                                    selectedProducts.splice(index, 1);
+                                }
+                            }
+                        });
+                    checkboxCell.append(checkbox);
+                    row.append(checkboxCell);
+
+                    $("<td>").text(product.id).appendTo(row);
+                    $("<td>").text(product.barcode).appendTo(row);
+                    $("<td>").text(product.name).appendTo(row);
+                    $("<td>").text("No").appendTo(row);
+
+                    if (product.imageUrl) {
+                        const imageCell = $("<td>");
+                        $("<img>").attr("src", product.imageUrl).appendTo(imageCell);
+                        row.append(imageCell);
+                    } else {
+                        row.append("<td>");
+                    }
+
+                    $("<td>").text(product.unitPrice).appendTo(row);
+
+                    // Add input field for quantity
+                    // Add input field for quantity
+                    //const quantityCell = $("<td>");
+                    //const quantityInput = $("<input>")
+                    //    .attr("type", "number")
+                    //   .attr("data-product-barcode", product.barcode)
+                    //   .attr("value", product.quantity)
+                    //   .attr("style","width: 50px;")
+                    //   .on("change", function () {
+                    //        const barcode = $(this).data("product-barcode");
+                    //        const quantity = parseInt($(this).val());
+                    //        updateSelectedProductQuantity(barcode, quantity);
+                    //    });
+                    //quantityCell.append(quantityInput);
+                    //row.append(quantityCell);
+                    $("<td>").text(product.quantity).appendTo(row);
+                    $("<td>").text(product.subTotal).appendTo(row);
+                    $("<td>").text(product.total).appendTo(row);
+                    $("<td>").text(product.vat).appendTo(row);
+                    const productTable = $("#productTable");
+                    productTable.append(row);
+                });
+            });
+
+            connection.on("ReceiveUserCredentialChanged", function (message) {
+                log('ReceiveUserCredentialChanged received');
+                toastr.success("ReceiveUserCredentialChanged");
+                const res = JSON.parse(message);
+                if (res.status != '200') {
+                    toastr.error(res.error);
+                    return;
+                }
+                toastr.success("User Credential has Changed!");
+            });
+            // Checkout button click event
+            $("#checkoutButton").on("click", function () {
+                // Get the selected payment type
+                const paymentType = parseInt($("#paymentType").val());
+
+                // Create the CheckoutInput object
+                const checkoutInput = {
+                    paymentType: paymentType,
+                    receiptNumber: "123",
+                    approvalCode: "456",
+                    paymentTerminalId: "789",
+                    products: selectedProducts
+                };
+                emptyInvoice();
+                // Send the CheckoutInput object to the Checkout socket method
+                connection.invoke("Checkout", checkoutInput)
+                    .then(function () {
+                        log("Checkout request sent.");
+                    })
+                    .catch(function (err) {
+                        toastr.error("Error during checkout: " + err.toString());
+                    });
+            });
+
+            // Checkout button click event
+            $("#preCheckoutButton").on("click", function () {
+                emptyInvoice();
+                // Create the CheckoutInput object
+                const preCheckoutInput = {
+                    products: selectedProducts
+                };
+
+                // Send the CheckoutInput object to the Checkout socket method
+                connection.invoke("GetCheckoutInvoiceSummary", preCheckoutInput)
+                    .then(function () {
+                        log("PreCheckout successful.");
+                    })
+                    .catch(function (err) {
+                        toastr.error("Error during precheckout: " + err.toString());
+                    });
+            });
+            $("#clearLogs").on("click", function () {
+                const logsTable = $("#logs");
+                logsTable.empty();
+            });
+            $("#emptyProduct").on("click", function () {
+                selectedProducts = [];
+                const productTable = $("#productTable");
+                productTable.empty();
+            });
+            function emptyInvoice() {
+                $("#paymentDate").text("");
+                $("#paymentTypeText").text("");
+                $("#invoiceTotal").text("");
+                $("#invoiceVat").text("");
+                $("#grandTotal").text("");
+                $("#invoiceNumber").text("");
+
+                const invoiceItems = $("#invoiceItems");
+                invoiceItems.empty();
+
+            };
+
+            // Checkout button click event
+            $("#checkoutCancel").on("click", function () {
+                // Get the selected payment type
+                const paymentType = parseInt($("#paymentType").val());
+
+                // Create the CheckoutInput object
+                const checkoutInput = {
+                    paymentType: paymentType,
+                    receiptNumber: "123",
+                    approvalCode: "456",
+                    paymentTerminalId: "789",
+                    products: selectedProducts
+                };
+
+                connection.invoke("CheckoutAbandonment", checkoutInput)
+                    .then(function () {
+                        log("Checkout Abandonment successful.");
+                    })
+                    .catch(function (err) {
+                        toastr.error("Error during checkout abandonment: " + err.toString());
+                    });
+            });
+            $("#scanProduct").on("click", function () {
+                const barcode = $("#barcode").val();
+                var url = connectionUrl.replace("chathub", "api/app/products/scan-product?sku=" + barcode);
+                const myHeaders = new Headers();
+                myHeaders.append("Content-Type", "application/json; v=1.0");
+                myHeaders.append("Accept", "application/json; v=1.0");
+                myHeaders.append("Authorization", "Bearer " + token);
+                const requestOptions = {
+                    method: "GET",
+                    headers: myHeaders,
+                    redirect: "follow"
+                };
+                fetch(url, requestOptions)
+                    .then(response => {
+                        if (!response.ok) {
+                            toastr.error("Network response was not ok");
+                        }
+                        return response.json();
+                    })
+                    .then(res => {
+                        log(res);
+                        const product = res.data;
+                        const row = $("<tr>");
+
+                        // Add checkbox column
+                        const checkboxCell = $("<td>");
+                        const checkbox = $("<input>")
+                            .attr("type", "checkbox")
+                            .attr("data-product-barcode", product.barcode)
+                            .attr("data-product-productId", product.id)
+                            .attr("data-product-isScanned", true)
+                            .on("change", function () {
+                                const barcode = $(this).data("product-barcode");
+                                if (this.checked) {
+                                    selectedProducts.push({ productId: product.id, barcode: product.barcode, quantity: product.quantity, isScanned: true });
+                                } else {
+                                    const index = selectedProducts.findIndex((product) => product.barcode === barcode);
+                                    if (index !== -1) {
+                                        selectedProducts.splice(index, 1);
+                                    }
+                                }
+                            });
+                        checkboxCell.append(checkbox);
+                        row.append(checkboxCell);
+
+                        $("<td>").text(product.id).appendTo(row);
+                        $("<td>").text(product.barcode).appendTo(row);
+                        $("<td>").text(product.name).appendTo(row);
+                        $("<td>").text("Yes").appendTo(row);
+
+                        if (product.imageUrl) {
+                            const imageCell = $("<td>");
+                            $("<img>").attr("src", product.imageUrl).appendTo(imageCell);
+                            row.append(imageCell);
+                        } else {
+                            row.append("<td>");
+                        }
+
+                        $("<td>").text(product.unitPrice).appendTo(row);
+
+                        // Add input field for quantity
+                        //const quantityCell = $("<td>");
+                        //const quantityInput = $("<input>")
+                        //    .attr("type", "number")
+                        //   .attr("data-product-barcode", product.barcode)
+                        //   .attr("value", product.quantity)
+                        //   .attr("style","width: 50px;")
+                        //   .on("change", function () {
+                        //        const barcode = $(this).data("product-barcode");
+                        //        const quantity = parseInt($(this).val());
+                        //        updateSelectedProductQuantity(barcode, quantity);
+                        //    });
+                        //quantityCell.append(quantityInput);
+                        //row.append(quantityCell);
+                        $("<td>").text(product.quantity + ' ' + product.unit).appendTo(row);
+                        $("<td>").text(product.subTotal).appendTo(row);
+                        $("<td>").text(product.total).appendTo(row);
+                        $("<td>").text(product.vat).appendTo(row);
+                        const productTable = $("#productTable");
+
+                        productTable.append(row);
+                    })
+                    .catch(error => {
+                        console.error
+                            ('Error:', error);
+                    });
+            });
+
+            // Update the selected product quantity
+            function updateSelectedProductQuantity(barcode, quantity) {
+                const selectedProduct = selectedProducts.find((product) => product.barcode === barcode);
+                if (selectedProduct) {
+                    selectedProduct.quantity = quantity;
+                }
+            }
+
+            // Get the selected product quantity
+            function getSelectedProductQuantity(barcode) {
+                const selectedProduct = selectedProducts.find((product) => product.barcode === barcode);
+                return selectedProduct ? selectedProduct.quantity : 0;
+            }
+            function log(message) {
+                var d = new Date();
+                var dformat = [
+                    d.getHours(),
+                    d.getMinutes(),
+                    d.getSeconds()
+                ].map(num => num.toString().padStart(2, '0')).join(':');  // Ensure double digits
+
+                const logs = $("#logs");
+                const row = $("<tr>");
+
+                // Create a container for the JSON viewer
+                const jsonContainer = $("<td>");
+
+                // Check if the message is a JSON string and parse it
+                let parsedMessage;
+                try {
+                    parsedMessage = JSON.parse(message);
+                } catch (e) {
+                    try {
+                    parsedMessage = JSON.parse(message.data);
+                    } catch (e) {
+                        parsedMessage = message;
+                    }
+                }
+
+                // If parsedMessage is an object, use jsonview to render it
+                if (typeof parsedMessage === 'object' && parsedMessage !== null) {
+                    const tree = jsonview.create(parsedMessage);
+                    const container = document.createElement('div');
+                    container.classList.add('jsonview');
+                    jsonview.render(tree, container);
+                    jsonview.collapse(tree);
+                    jsonContainer.append(container);
+                } else {
+                    jsonContainer.text(parsedMessage);
+                }
+
+                row.append(jsonContainer);
+                $("<td>").text(dformat).appendTo(row);
+                logs.prepend(row);  // Prepend the new log row
+            }
+            connection.on("ReceiveCheckoutInvoiceSummary", function (message) {
+                log('ReceiveCheckoutInvoiceSummary received');
+                toastr.success("ReceiveCheckoutInvoiceSummary");
+                const invoice = JSON.parse(message);
+                if (invoice.status != '200') {
+                    toastr.error(invoice.error);
+                    return;
+                }
+                // Update the invoice details
+                $("#paymentDate").text(invoice.data.paymentDate);
+                $("#paymentTypeText").text(invoice.data.paymentTypeName);
+                $("#invoiceTotal").text(invoice.data.subTotal);
+                $("#invoiceVat").text(invoice.data.vat);
+                $("#grandTotal").text(invoice.data.total);
+                $("#invoiceNumber").text(invoice.data.invoiceNumber);
+
+                const invoiceItems = $("#invoiceItems");
+                invoiceItems.empty();
+
+                invoice.data.items.forEach((item) => {
+                    const row = $("<tr>");
+                    $("<td>").text(item.name).appendTo(row);
+                    $("<td>").text(item.quantity).appendTo(row);
+                    $("<td>").text(item.unitPrice).appendTo(row);
+                    $("<td>").text(item.vat).appendTo(row);
+                    $("<td>").text(item.total).appendTo(row);
+                    $("<td>").text(item.isScanned).appendTo(row);
+                    invoiceItems.append(row);
+                });
+
+                // Show the invoice box
+                $("#invoiceBox").show();
+            });
+            connection.on("ReceiveInvoice", function (message) {
+                log('ReceiveInvoice received');
+                log(message);
+                const invoice = JSON.parse(message);
+                if (invoice.status != '200') {
+                    toastr.error(invoice.error);
+                    return;
+                }
+                toastr.success("ReceiveInvoice");
+                // Update the invoice details
+                $("#paymentDate").text(invoice.data.paymentDate);
+                $("#paymentTypeText").text(invoice.data.paymentTypeName);
+                $("#invoiceVat").text(invoice.data.vat);
+                $("#invoiceTotal").text(invoice.data.subTotal);
+                $("#grandTotal").text(invoice.data.total);
+                $("#invoiceNumber").text(invoice.data.invoiceNumber);
+
+                const invoiceItems = $("#invoiceItems");
+                invoiceItems.empty();
+
+                invoice.data.items.forEach((item) => {
+                    const row = $("<tr>");
+                    if (!item.unit) {
+                        item.unit = "PCS"
+                    }
+                    $("<td>").text(item.name).appendTo(row);
+                    $("<td>").text(item.quantity + ' ' + item.unit).appendTo(row);
+                    $("<td>").text(item.unitPrice).appendTo(row);
+                    $("<td>").text(item.vat).appendTo(row);
+                    $("<td>").text(item.total).appendTo(row);
+                    $("<td>").text(item.isScanned).appendTo(row);
+                    invoiceItems.append(row);
+                });
+
+                // Show the invoice box
+                $("#invoiceBox").show();
+                connection.invoke("getSpinnerParams")
+                    .then(function () {
+                        log("getSpinnerParams request sent.");
+                    })
+                    .catch(function (err) {
+                        toastr.error("Error sending getSpinnerParams: " + err.toString());
+                    });
+
+                //var prize = prompt("Enter prize amount");
+                var prize = 1;
+                const createSpinnerPrizeInput = {
+                    invoiceId: invoice.data.invoiceId,
+                    prize: parseFloat(prize)
+                };
+                connection.invoke("createSpinnerPrize", createSpinnerPrizeInput)
+                    .then(function () {
+                        log("createSpinnerPrize request sent.");
+                    })
+                    .catch(function (err) {
+                        toastr.error("Error sending createSpinnerPrize: " + err.toString());
+                    });
+            });
+        });
+    </script>
+</body>
+
+</html>
