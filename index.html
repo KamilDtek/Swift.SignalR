@@ -204,13 +204,13 @@
 
                 switch (connectionType) {
                     case '1':
-                        endpoint = "https://localhost:5000/";
+                        endpoint = "https://localhost:5000";
                         break;
                     case '2':
-                        endpoint = "https://swift-api-dev.dtek.ai/";
+                        endpoint = "https://swift-api-dev.dtek.ai";
                         break;
                     case '0':
-                        endpoint = "https://swift-api.dtek.ai/";
+                        endpoint = "https://swift-api.dtek.ai";
                         break;
                     case '3':
                         endpoint = prompt("Enter url");
@@ -222,7 +222,7 @@
             }
 
             async function getToken() {
-                const response = await fetch(endpoint + 'connect/token', {
+                const response = await fetch(endpoint + '/connect/token', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/x-www-form-urlencoded'
@@ -240,7 +240,7 @@
             }
 
             function setupConnection(token) {
-                connectionUrl = endpoint + "chathub";
+                connectionUrl = endpoint + "/chathub";
 
                 connection = new signalR.HubConnectionBuilder()
                     .withUrl(connectionUrl, {
@@ -259,7 +259,7 @@
                 const kioskSn = prompt("Enter your kiosk SN:");
                 $("#deviceId").text("Device Id: " + kioskSn);
 
-                const apiUrl = connectionUrl.replace("chathub", '') + 'api/app/users/login';
+                const apiUrl = endpoint + '/api/app/users/login';
                 const data = {
                     KioskSerialNumber: kioskSn
                 };
@@ -619,10 +619,10 @@
                         toastr.error("Error during checkout abandonment: " + err.toString());
                     });
             });
-            
+
             $("#scanProduct").on("click", function (token) {
                 const barcode = $("#barcode").val();
-                var url = connectionUrl.replace("chathub", "api/app/products/scan-product?sku=" + barcode);
+                var url = endpoint + "/api/app/products/scan-product?sku=" + barcode;
                 const myHeaders = new Headers();
                 myHeaders.append("Content-Type", "application/json; v=1.0");
                 myHeaders.append("Accept", "application/json; v=1.0");
