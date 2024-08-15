@@ -176,26 +176,61 @@
         var token = "";
         $(document).ready(function () {
             var selectedProducts = []; // Array to store selected products
-            var connectionType = prompt("Enter 0 for prod, 1 for local 2 for dev, 3 for custom");
-            token = prompt("Enter token");
-            if (connectionType == 1) {
-                connectionUrl = "https://localhost:5000/chathub";
-            } else if (connectionType == 2) {
-                connectionUrl = "https://swift-api-dev.dtek.ai/chathub";
-            } else if (connectionType == 0) {
-                connectionUrl = "https://swift-api.dtek.ai/chathub";
-            }
-            else if (connectionType == 3) {
-                connectionUrl = prompt("Enter url");
-            }
-            var connection = new signalR.HubConnectionBuilder()
-                .withUrl(connectionUrl, {
-                    accessTokenFactory: () => token
+            var connectionType = prompt("Enter 0 for prod, 1 for local, 2 for dev, 3 for custom");
+
+            var username = prompt("Enter username");
+            var password = prompt("Enter password");
+
+            fetch('https://localhost:5000/connect/token', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                body: new URLSearchParams({
+                    'grant_type': 'password',
+                    'username': username,
+                    'password': password,
+                    'client_id': 'Dtek_Swift_AdminPortal'
                 })
-                .build();
-            connection.start()
-                .then(registerBox)
-                .catch(console.error);
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.access_token) {
+                        token = data.access_token;
+                        // Proceed with the rest of the setup
+                        setupConnection();
+                    } else {
+                        alert('Authentication failed');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('An error occurred');
+                });
+
+            function setupConnection() {
+                var connectionType = prompt("Enter 0 for prod, 1 for local 2 for dev, 3 for custom");
+
+                if (connectionType == 1) {
+                    connectionUrl = "https://localhost:5000/chathub";
+                } else if (connectionType == 2) {
+                    connectionUrl = "https://swift-api-dev.dukkantek.com/chathub";
+                } else if (connectionType == 0) {
+                    connectionUrl = "https://swift-api.dukkantek.com/chathub";
+                } else if (connectionType == 3) {
+                    connectionUrl = prompt("Enter url");
+                }
+
+                var connection = new signalR.HubConnectionBuilder()
+                    .withUrl(connectionUrl, {
+                        accessTokenFactory: () => token
+                    })
+                    .build();
+
+                connection.start()
+                    .then(registerBox)
+                    .catch(console.error);
+            }
 
             function registerBox() {
                 kioskSn = prompt("Enter your kiosk sn:");
@@ -603,7 +638,7 @@
                     parsedMessage = JSON.parse(message);
                 } catch (e) {
                     try {
-                    parsedMessage = JSON.parse(message.data);
+                        parsedMessage = JSON.parse(message.data);
                     } catch (e) {
                         parsedMessage = message;
                     }
