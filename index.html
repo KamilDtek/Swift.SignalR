@@ -176,7 +176,8 @@
         var endpoint = "";
         var username = "";
         var password = "";
-        
+        var connection = null;
+
         $(document).ready(function () {
             var selectedProducts = []; // Array to store selected products
             // var connectionType = prompt("Enter 0 for prod, 1 for local, 2 for dev, 3 for custom");
@@ -198,7 +199,7 @@
                 .then(response => response.json())
                 .then(data => {
                     if (data.access_token) {
-                        
+
                         // Proceed with the rest of the setup
                         setupConnection(data.access_token);
                     } else {
@@ -238,15 +239,17 @@
                     connectionUrl = prompt("Enter url");
                 }
 
-                var connection = new signalR.HubConnectionBuilder()
+                connection = new signalR.HubConnectionBuilder()
                     .withUrl(connectionUrl, {
                         accessTokenFactory: () => token
                     })
                     .build();
 
                 connection.start()
-                    .then(e=>registerBox(token))
+                    .then(e => registerBox(token))
                     .catch(console.error);
+
+                subscribe(connection)
             }
 
             function registerBox(token) {
@@ -289,166 +292,155 @@
                             ('Error:', error);
                     });
             }
-            connection.on("ReceiveKioskDisconnected", function (message) {
-                log("ReceiveKioskDisconnected");
-                toastr.warning("ReceiveKioskDisconnected");
-                log(message);
-            });
-            connection.on("ReceiveTerminalConnected", function (message) {
-                log("ReceiveTerminalConnected");
-                toastr.success(ReceiveTerminalConnected);
-                log(message);
-            });
-            connection.on("ReceiveTerminalDisconnected", function (message) {
-                log("ReceiveTerminalDisconnected");
-                toastr.warning("ReceiveTerminalDisconnected");
-                log(message);
-            });
-            connection.on("ReceiveKioskSettingChanged", function (message) {
-                log("ReceiveKioskSettingChanged");
-                toastr.success("ReceiveKioskSettingChanged");
-                log(message);
-                $("#shopLogo").show();
-                $("#shopLogo").attr("src", JSON.parse(message).data.shopSetting.logoUrl);
-            });
-            connection.on("ReceiveSpinnerParams", function (message) {
-                log('ReceiveSpinnerParams received');
-                const res = JSON.parse(message);
-                if (res.status != '200') {
-                    toastr.error(res.error);
-                    return;
-                }
-                toastr.success("Received remaining budget: " + res.data.remainingBudget);
-                toastr.success("Received total budget: " + res.data.totalBudget);
-            });
-            connection.on("ReceivePrizeCreated", function (message) {
-                log('ReceivePrizeCreated received');
-                toastr.success("ReceivePrizeCreated");
-                const res = JSON.parse(message);
-                if (res.status != '200') {
-                    toastr.error(res.error);
-                    return;
-                }
-            });
-            connection.on("ReceiveRegister", function (message) {
-                log('ReceiveRegister received');
-                toastr.success("ReceiveRegister");
-                const res = JSON.parse(message);
-                if (res.status != '200') {
-                    toastr.error(res.error);
-                    return;
-                }
-                if (res.data == false) {
-                    toastr.error("Error registering box: " + err.toString());
-                } else {
-                    log("Box registration successful");
-                }
-            });
-            connection.on("ReceiveProducts", function (message) {
-                log('ReceiveProducts received');
-                toastr.success("ReceiveProducts");
-                selectedProducts = [];
-                const productTable = $("#productTable");
-                productTable.empty();
-                $("#subTotal").text("Sub Total: 0");
-                $("#vat").text("VAT: 0");
-                $("#total").text("Total: 0");
-                log(message);
-                const res = JSON.parse(message);
-                if (res.status != '200') {
-                    toastr.error(res.error);
-                    return;
-                }
-                $('#images').empty();
-                const unidentifiedProducts = res.data.unidentifiedItems;
-                if (unidentifiedProducts && unidentifiedProducts.length > 0) {
-                    $('#unidentified').show();
-                }
-                else {
-                    $('#unidentified').hide();
-                }
-                unidentifiedProducts.forEach((base64Image) => {
-                    base64Image = "data:image/png;base64," + base64Image;
-                    var img = $('<img>');
-                    img.attr('src', base64Image);
-                    var container = $('<div class="imageContainer"></div>');
-                    container.append(img);
-                    $('#images').append(container);
+
+            function subscribe(connection) {
+
+                connection.on("ReceiveKioskDisconnected", function (message) {
+                    log("ReceiveKioskDisconnected");
+                    toastr.warning("ReceiveKioskDisconnected");
+                    log(message);
                 });
-                const products = res.data.items;
-                products.forEach((product) => {
-                    const row = $("<tr>");
-
-                    // Add checkbox column
-                    const checkboxCell = $("<td>");
-                    const checkbox = $("<input>")
-                        .attr("type", "checkbox")
-                        .attr("data-product-barcode", product.barcode)
-                        .attr("data-product-productId", product.id)
-                        .attr("data-product-isScanned", false)
-                        .on("change", function () {
-                            const barcode = $(this).data("product-barcode");
-                            if (this.checked) {
-                                selectedProducts.push({ productId: product.id, barcode: product.barcode, quantity: product.quantity, isScanned: false });
-                            } else {
-                                const index = selectedProducts.findIndex((product) => product.barcode === barcode);
-                                if (index !== -1) {
-                                    selectedProducts.splice(index, 1);
-                                }
-                            }
-                        });
-                    checkboxCell.append(checkbox);
-                    row.append(checkboxCell);
-
-                    $("<td>").text(product.id).appendTo(row);
-                    $("<td>").text(product.barcode).appendTo(row);
-                    $("<td>").text(product.name).appendTo(row);
-                    $("<td>").text("No").appendTo(row);
-
-                    if (product.imageUrl) {
-                        const imageCell = $("<td>");
-                        $("<img>").attr("src", product.imageUrl).appendTo(imageCell);
-                        row.append(imageCell);
-                    } else {
-                        row.append("<td>");
+                connection.on("ReceiveTerminalConnected", function (message) {
+                    log("ReceiveTerminalConnected");
+                    toastr.success(ReceiveTerminalConnected);
+                    log(message);
+                });
+                connection.on("ReceiveTerminalDisconnected", function (message) {
+                    log("ReceiveTerminalDisconnected");
+                    toastr.warning("ReceiveTerminalDisconnected");
+                    log(message);
+                });
+                connection.on("ReceiveKioskSettingChanged", function (message) {
+                    log("ReceiveKioskSettingChanged");
+                    toastr.success("ReceiveKioskSettingChanged");
+                    log(message);
+                    $("#shopLogo").show();
+                    $("#shopLogo").attr("src", JSON.parse(message).data.shopSetting.logoUrl);
+                });
+                connection.on("ReceiveSpinnerParams", function (message) {
+                    log('ReceiveSpinnerParams received');
+                    const res = JSON.parse(message);
+                    if (res.status != '200') {
+                        toastr.error(res.error);
+                        return;
                     }
-
-                    $("<td>").text(product.unitPrice).appendTo(row);
-
-                    // Add input field for quantity
-                    // Add input field for quantity
-                    //const quantityCell = $("<td>");
-                    //const quantityInput = $("<input>")
-                    //    .attr("type", "number")
-                    //   .attr("data-product-barcode", product.barcode)
-                    //   .attr("value", product.quantity)
-                    //   .attr("style","width: 50px;")
-                    //   .on("change", function () {
-                    //        const barcode = $(this).data("product-barcode");
-                    //        const quantity = parseInt($(this).val());
-                    //        updateSelectedProductQuantity(barcode, quantity);
-                    //    });
-                    //quantityCell.append(quantityInput);
-                    //row.append(quantityCell);
-                    $("<td>").text(product.quantity).appendTo(row);
-                    $("<td>").text(product.subTotal).appendTo(row);
-                    $("<td>").text(product.total).appendTo(row);
-                    $("<td>").text(product.vat).appendTo(row);
-                    const productTable = $("#productTable");
-                    productTable.append(row);
+                    toastr.success("Received remaining budget: " + res.data.remainingBudget);
+                    toastr.success("Received total budget: " + res.data.totalBudget);
                 });
-            });
+                connection.on("ReceivePrizeCreated", function (message) {
+                    log('ReceivePrizeCreated received');
+                    toastr.success("ReceivePrizeCreated");
+                    const res = JSON.parse(message);
+                    if (res.status != '200') {
+                        toastr.error(res.error);
+                        return;
+                    }
+                });
+                connection.on("ReceiveRegister", function (message) {
+                    log('ReceiveRegister received');
+                    toastr.success("ReceiveRegister");
+                    const res = JSON.parse(message);
+                    if (res.status != '200') {
+                        toastr.error(res.error);
+                        return;
+                    }
+                    if (res.data == false) {
+                        toastr.error("Error registering box: " + err.toString());
+                    } else {
+                        log("Box registration successful");
+                    }
+                });
+                connection.on("ReceiveProducts", function (message) {
+                    log('ReceiveProducts received');
+                    toastr.success("ReceiveProducts");
+                    selectedProducts = [];
+                    const productTable = $("#productTable");
+                    productTable.empty();
+                    $("#subTotal").text("Sub Total: 0");
+                    $("#vat").text("VAT: 0");
+                    $("#total").text("Total: 0");
+                    log(message);
+                    const res = JSON.parse(message);
+                    if (res.status != '200') {
+                        toastr.error(res.error);
+                        return;
+                    }
+                    $('#images').empty();
+                    const unidentifiedProducts = res.data.unidentifiedItems;
+                    if (unidentifiedProducts && unidentifiedProducts.length > 0) {
+                        $('#unidentified').show();
+                    }
+                    else {
+                        $('#unidentified').hide();
+                    }
+                    unidentifiedProducts.forEach((base64Image) => {
+                        base64Image = "data:image/png;base64," + base64Image;
+                        var img = $('<img>');
+                        img.attr('src', base64Image);
+                        var container = $('<div class="imageContainer"></div>');
+                        container.append(img);
+                        $('#images').append(container);
+                    });
+                    const products = res.data.items;
+                    products.forEach((product) => {
+                        const row = $("<tr>");
 
-            connection.on("ReceiveUserCredentialChanged", function (message) {
-                log('ReceiveUserCredentialChanged received');
-                toastr.success("ReceiveUserCredentialChanged");
-                const res = JSON.parse(message);
-                if (res.status != '200') {
-                    toastr.error(res.error);
-                    return;
-                }
-                toastr.success("User Credential has Changed!");
-            });
+                        // Add checkbox column
+                        const checkboxCell = $("<td>");
+                        const checkbox = $("<input>")
+                            .attr("type", "checkbox")
+                            .attr("data-product-barcode", product.barcode)
+                            .attr("data-product-productId", product.id)
+                            .attr("data-product-isScanned", false)
+                            .on("change", function () {
+                                const barcode = $(this).data("product-barcode");
+                                if (this.checked) {
+                                    selectedProducts.push({ productId: product.id, barcode: product.barcode, quantity: product.quantity, isScanned: false });
+                                } else {
+                                    const index = selectedProducts.findIndex((product) => product.barcode === barcode);
+                                    if (index !== -1) {
+                                        selectedProducts.splice(index, 1);
+                                    }
+                                }
+                            });
+                        checkboxCell.append(checkbox);
+                        row.append(checkboxCell);
+
+                        $("<td>").text(product.id).appendTo(row);
+                        $("<td>").text(product.barcode).appendTo(row);
+                        $("<td>").text(product.name).appendTo(row);
+                        $("<td>").text("No").appendTo(row);
+
+                        if (product.imageUrl) {
+                            const imageCell = $("<td>");
+                            $("<img>").attr("src", product.imageUrl).appendTo(imageCell);
+                            row.append(imageCell);
+                        } else {
+                            row.append("<td>");
+                        }
+
+                        $("<td>").text(product.unitPrice).appendTo(row);
+                        $("<td>").text(product.quantity).appendTo(row);
+                        $("<td>").text(product.subTotal).appendTo(row);
+                        $("<td>").text(product.total).appendTo(row);
+                        $("<td>").text(product.vat).appendTo(row);
+                        const productTable = $("#productTable");
+                        productTable.append(row);
+                    });
+                });
+
+                connection.on("ReceiveUserCredentialChanged", function (message) {
+                    log('ReceiveUserCredentialChanged received');
+                    toastr.success("ReceiveUserCredentialChanged");
+                    const res = JSON.parse(message);
+                    if (res.status != '200') {
+                        toastr.error(res.error);
+                        return;
+                    }
+                    toastr.success("User Credential has Changed!");
+                });
+            }
+
             // Checkout button click event
             $("#checkoutButton").on("click", function () {
                 // Get the selected payment type
@@ -593,21 +585,6 @@
                         }
 
                         $("<td>").text(product.unitPrice).appendTo(row);
-
-                        // Add input field for quantity
-                        //const quantityCell = $("<td>");
-                        //const quantityInput = $("<input>")
-                        //    .attr("type", "number")
-                        //   .attr("data-product-barcode", product.barcode)
-                        //   .attr("value", product.quantity)
-                        //   .attr("style","width: 50px;")
-                        //   .on("change", function () {
-                        //        const barcode = $(this).data("product-barcode");
-                        //        const quantity = parseInt($(this).val());
-                        //        updateSelectedProductQuantity(barcode, quantity);
-                        //    });
-                        //quantityCell.append(quantityInput);
-                        //row.append(quantityCell);
                         $("<td>").text(product.quantity + ' ' + product.unit).appendTo(row);
                         $("<td>").text(product.subTotal).appendTo(row);
                         $("<td>").text(product.total).appendTo(row);
