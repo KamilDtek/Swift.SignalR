@@ -257,7 +257,7 @@
 
             function registerBox(token) {
                 const kioskSn = prompt("Enter your kiosk SN:","4e4c20aa8385ff3a");
-                $("#deviceId").text("Device Id: ","FALQ0U" + kioskSn);
+                $("#deviceId").text("Device Id: " + kioskSn);
 
                 const apiUrl = endpoint + '/api/app/users/login';
                 const data = {
@@ -279,7 +279,7 @@
                         return response.json();
                     })
                     .then(data => {
-                        const boxCode = prompt("Enter your box code:");
+                        const boxCode = prompt("Enter your box code:","FALQ0U");
                         $("#boxCode").text("Box Code: " + boxCode);
                         return connection.invoke("registerBox", kioskSn, boxCode);
                     })
