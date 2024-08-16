@@ -620,7 +620,7 @@
                     });
             });
 
-            $("#scanProduct").on("click", function (token) {
+            $("#scanProduct").on("click", function () {
                 const barcode = $("#barcode").val();
                 var url = endpoint + "/api/app/products/scan-product?sku=" + barcode;
                 const myHeaders = new Headers();
