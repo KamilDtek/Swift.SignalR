@@ -199,8 +199,8 @@
 
             function setupEndpoint() {
                 var connectionType = prompt("Enter 0 PROD, 1 Local, 2 DEV, 3 Custom!");
-                username = prompt("Enter username");
-                password = prompt("Enter password");
+                username = prompt("Enter username","ls1607");
+                password = prompt("Enter password","exsf4164");
 
                 switch (connectionType) {
                     case '1':
@@ -256,8 +256,8 @@
             }
 
             function registerBox(token) {
-                const kioskSn = prompt("Enter your kiosk SN:");
-                $("#deviceId").text("Device Id: " + kioskSn);
+                const kioskSn = prompt("Enter your kiosk SN:","4e4c20aa8385ff3a");
+                $("#deviceId").text("Device Id: ","FALQ0U" + kioskSn);
 
                 const apiUrl = endpoint + '/api/app/users/login';
                 const data = {
